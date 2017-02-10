@@ -38,15 +38,15 @@ type Foo struct {
 	ID   int
 }
 
+// Allocate returns an initialized Foo, including an App reference.
+func (f *Foo) Allocate(app *App) interface{} { return &Foo{App: *app} }
+
 // FooHandler responds to POST requests for the path /foo
 func FooHandler(w http.ResponseWriter, r *http.Request) {
 	var foo *Foo
 	foo = r.Context().Value("parsed-body").(*Foo)
 	w.Write([]byte(fmt.Sprintf("%v", foo)))
 }
-
-// Allocate returns an initialized Foo, including an App reference.
-func (f *Foo) Allocate(app *App) interface{} { return &Foo{App: *app} }
 
 func main() {
 	app := &App{Form: schema.NewDecoder()}
@@ -61,6 +61,19 @@ func main() {
 func WriteResponse(w http.ResponseWriter, code int, msg string) {
 	w.WriteHeader(code)
 	w.Write([]byte(msg))
+}
+
+// ContentType returns the MIME type of the input data, or an error,
+// if the Content-Type header fails to parse.
+func ContentType(r *http.Request) (mediaType string, err error) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "" {
+		mediaType, _, err = mime.ParseMediaType(contentType)
+		if err != nil {
+			return mediaType, errors.Wrap(err, "ParseMediaType failed")
+		}
+	}
+	return mediaType, nil
 }
 
 type WrappedHandler func(h http.Handler) http.Handler
@@ -106,17 +119,4 @@ func (app *App) BodyParse(reqType RequestType) WrappedHandler {
 			h.ServeHTTP(w, r)
 		})
 	}
-}
-
-// ContentType returns the MIME type of the input data, or an error,
-// if the Content-Type header fails to parse.
-func ContentType(r *http.Request) (mediaType string, err error) {
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "" {
-		mediaType, _, err = mime.ParseMediaType(contentType)
-		if err != nil {
-			return mediaType, errors.Wrap(err, "ParseMediaType failed")
-		}
-	}
-	return mediaType, nil
 }
